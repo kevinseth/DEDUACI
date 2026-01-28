@@ -1,112 +1,161 @@
 package com.DEDUACI.demo.utility;
 
 import javax.imageio.ImageIO;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.*;
+import java.util.Random;
 
 public class ImageEncryptor {
 
-    /* ---------- IMAGE CREATION ---------- */
-    public static BufferedImage createBlankImage(int textLength) {
-        int totalBits = (textLength + 4) * 8; // text + length
-        int size = (int) Math.ceil(Math.sqrt(totalBits));
-        return new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
-    }
+    /* ---------- CREATE RANDOM COLORED IMAGE ---------- */
+	public static BufferedImage createColoredImage(int dataLength) {
 
-    /* ---------- ENCRYPT ---------- */
-    public static BufferedImage encryptTextWithLength(BufferedImage image, String text) {
-        byte[] textBytes = text.getBytes();
-        int textLength = textBytes.length;
+	    int totalBits = (dataLength + 4) * 8; // +4 bytes for length
+	    int pixelsNeeded = (int) Math.ceil(totalBits / 3.0);
 
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        baos.write((textLength >> 24) & 0xFF);
-        baos.write((textLength >> 16) & 0xFF);
-        baos.write((textLength >> 8) & 0xFF);
-        baos.write(textLength & 0xFF);
-        baos.writeBytes(textBytes);
+	    // Calculate width & height
+	    int width = (int) Math.ceil(Math.sqrt(pixelsNeeded));
+	    int height = (int) Math.ceil((double) pixelsNeeded / width);
 
-        byte[] data = baos.toByteArray();
+	    // ✅ Set a minimum size for visibility
+	    width = Math.max(width, 200);   // minimum width 200px
+	    height = Math.max(height, 200); // minimum height 200px
+
+	    BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+
+	    Random random = new Random();
+	    for (int y = 0; y < height; y++) {
+	        for (int x = 0; x < width; x++) {
+	            int r = random.nextInt(256);
+	            int g = random.nextInt(256);
+	            int b = random.nextInt(256);
+	            image.setRGB(x, y, new Color(r, g, b).getRGB());
+	        }
+	    }
+	    return image;
+	}
+
+    /* ---------- ENCRYPT BYTES INTO IMAGE ---------- */
+    public static BufferedImage encryptBytesWithLength(
+            BufferedImage image, byte[] data) {
+
+        int width = image.getWidth();
+        int height = image.getHeight();
+
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+
+        // Store length (4 bytes)
+        bos.write((data.length >> 24) & 0xFF);
+        bos.write((data.length >> 16) & 0xFF);
+        bos.write((data.length >> 8) & 0xFF);
+        bos.write(data.length & 0xFF);
+
+        try {
+            bos.write(data);
+        } catch (IOException ignored) {}
+
+        byte[] payload = bos.toByteArray();
         int bitIndex = 0;
 
-        for (int y = 0; y < image.getHeight(); y++) {
-            for (int x = 0; x < image.getWidth(); x++) {
+        outer:
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
 
-                if (bitIndex >= data.length * 8) return image;
+                if (bitIndex >= payload.length * 8)
+                    break outer;
 
-                int byteIndex = bitIndex / 8;
-                int bitInByte = 7 - (bitIndex % 8); // MSB → LSB
-                int bit = (data[byteIndex] >> bitInByte) & 1;
+                Color color = new Color(image.getRGB(x, y));
+                int r = color.getRed();
+                int g = color.getGreen();
+                int b = color.getBlue();
 
-                int rgb = image.getRGB(x, y);
-                int blue = (rgb & 0xFF);
-                blue = (blue & 0xFE) | bit;
+                r = setLSB(r, getBit(payload, bitIndex++));
+                if (bitIndex < payload.length * 8)
+                    g = setLSB(g, getBit(payload, bitIndex++));
+                if (bitIndex < payload.length * 8)
+                    b = setLSB(b, getBit(payload, bitIndex++));
 
-                image.setRGB(x, y, blue);
-                bitIndex++;
+                image.setRGB(x, y, new Color(r, g, b).getRGB());
             }
         }
         return image;
     }
 
-    /* ---------- DECRYPT ---------- */
-    public static String decryptTextWithLength(BufferedImage image) {
+    /* ---------- DECRYPT BYTES ---------- */
+    public static byte[] decryptBytesWithLength(BufferedImage image) {
 
-        int bitIndex = 0;
-        int textLength = 0;
+        int width = image.getWidth();
+        int height = image.getHeight();
 
-        /* ---- Read length (32 bits) ---- */
-        for (int y = 0; y < image.getHeight(); y++) {
-            for (int x = 0; x < image.getWidth(); x++) {
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
 
-                int bit = image.getRGB(x, y) & 1;
-                textLength = (textLength << 1) | bit;
-                bitIndex++;
+        int length = 0;
+        int lengthBitsRead = 0;
 
-                if (bitIndex == 32) break;
-            }
-            if (bitIndex == 32) break;
-        }
-
-        if (textLength <= 0 || textLength > 10000)
-            throw new IllegalArgumentException("Invalid encrypted image");
-
-        /* ---- Read text ---- */
-        byte[] textBytes = new byte[textLength];
         int currentByte = 0;
         int bitsCollected = 0;
-        int bytePos = 0;
+        int bytesRead = 0;
 
-        int pixelCount = 0;
+        outer:
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
 
-        for (int y = 0; y < image.getHeight(); y++) {
-            for (int x = 0; x < image.getWidth(); x++) {
+                Color color = new Color(image.getRGB(x, y));
+                int[] bits = {
+                        color.getRed() & 1,
+                        color.getGreen() & 1,
+                        color.getBlue() & 1
+                };
 
-                pixelCount++;
-                if (pixelCount <= 32) continue; // skip length bits
+                for (int bit : bits) {
 
-                int bit = image.getRGB(x, y) & 1;
-                currentByte = (currentByte << 1) | bit;
-                bitsCollected++;
+                    /* ---- READ LENGTH (32 bits) ---- */
+                    if (lengthBitsRead < 32) {
+                        length = (length << 1) | bit;
+                        lengthBitsRead++;
+                        continue;
+                    }
 
-                if (bitsCollected == 8) {
-                    textBytes[bytePos++] = (byte) currentByte;
-                    currentByte = 0;
-                    bitsCollected = 0;
-                    if (bytePos == textLength) {
-                        return new String(textBytes);
+                    /* ---- READ DATA ---- */
+                    currentByte = (currentByte << 1) | bit;
+                    bitsCollected++;
+
+                    if (bitsCollected == 8) {
+                        bos.write(currentByte);
+                        bitsCollected = 0;
+                        currentByte = 0;
+                        bytesRead++;
+
+                        if (bytesRead == length)
+                            break outer;
                     }
                 }
             }
         }
-        return new String(textBytes);
+        return bos.toByteArray();
     }
 
-    /* ---------- IO ---------- */
-    public static BufferedImage readImage(InputStream input) throws IOException {
-        return ImageIO.read(input);
+
+    /* ---------- HELPERS ---------- */
+    private static int setLSB(int value, int bit) {
+        return (value & 0xFE) | bit;
     }
 
-    public static void writeImage(BufferedImage image, OutputStream output, String format) throws IOException {
-        ImageIO.write(image, format, output);
+    private static int getBit(byte[] data, int bitIndex) {
+        int byteIndex = bitIndex / 8;
+        int bitInByte = 7 - (bitIndex % 8);
+        return (data[byteIndex] >> bitInByte) & 1;
+    }
+
+    public static void writeImage(BufferedImage image,
+                                  OutputStream out,
+                                  String format) throws IOException {
+        ImageIO.write(image, format, out);
+    }
+
+    public static BufferedImage readImage(InputStream in)
+            throws IOException {
+        return ImageIO.read(in);
     }
 }
