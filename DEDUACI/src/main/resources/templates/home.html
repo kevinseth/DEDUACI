@@ -3,71 +3,205 @@
 <head>
     <meta charset="UTF-8">
     <title>Text ↔ Image Encryption</title>
-    <style>
-        body { font-family: Arial; background-color: #f5f5f5; margin: 50px; }
-        .container { max-width: 1000px; margin: auto; display: flex; flex-direction: column; gap: 20px; }
-        h2 { text-align: center; }
-        .main-panels { display: flex; gap: 20px; align-items: flex-start; }
-        .panel { background-color: #fff; padding: 15px; border-radius: 8px; box-shadow: 0px 2px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
-        .text-panel { flex: 1; }
-        .image-panel { width: 450px; flex-shrink: 0; align-items: center; }
-        textarea { width: 100%; height: 250px; padding: 10px; font-size: 16px; resize: vertical; border-radius: 5px; border: 1px solid #ccc; }
-        input, button { padding: 10px; font-size: 16px; border-radius: 5px; border: 1px solid #007BFF; }
-        button { background-color: #007BFF; color: white; cursor: pointer; }
-        button:hover { background-color: #0056b3; }
-        input[type="file"] { background-color: white; color: #000; border-color: #ccc; }
-        a.download-btn { text-decoration: none; text-align: center; padding: 10px; font-size: 16px; background-color: #28a745; color: white; border-radius: 5px; margin-top: 5px; display: none; }
-        a.download-btn:hover { background-color: #1e7e34; }
-        .action-buttons { display: flex; flex-direction: column; gap: 10px; margin: 0 auto; align-items: center; }
-        label { font-weight: bold; margin-top: 10px; }
 
-        /* Image preview container */
-        .image-preview {
-            width: 400px;
-            height: 400px;
-            border: 1px solid #ccc;
+    <style>
+        body {
+            font-family: "Segoe UI", Arial, sans-serif;
+            background-color: #f4f6f9;
+            margin: 25px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 18px;
+            font-size: 14px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: auto;
+        }
+
+        .passcode-box {
+            max-width: 450px;
+            margin: 0 auto 18px;
+            background: #fff;
+            padding: 12px 18px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .passcode-box label {
+            font-weight: bold;
+        }
+
+        .passcode-box p {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .panels {
+            display: flex;
+            gap: 22px;
+        }
+
+        .panel {
+            flex: 1;
+            background: #fff;
+            padding: 18px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel h3 {
+            text-align: center;
+            margin-bottom: 12px;
+            color: #007BFF;
+        }
+
+        label {
+            font-weight: bold;
+            margin-top: 8px;
+            font-size: 14px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 180px;
+            padding: 10px;
+            font-size: 14px;
+            resize: vertical;
             border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        input, button {
+            padding: 9px;
+            font-size: 14px;
+            border-radius: 6px;
+            margin-top: 6px;
+        }
+
+        input {
+            border: 1px solid #ccc;
+        }
+
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        .image-preview {
+            width: 100%;
+            height: 240px;
+            border: 1px dashed #bbb;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background-color: #fafafa;
-            margin-bottom: 10px;
+            background: #fafafa;
+            margin-top: 8px;
         }
+
         .image-preview img {
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
             display: none;
         }
+
+        .download-btn {
+            text-decoration: none;
+            text-align: center;
+            padding: 9px;
+            font-size: 14px;
+            background-color: #28a745;
+            color: white;
+            border-radius: 6px;
+            margin-top: 8px;
+            display: none;
+        }
+
+        .download-btn:hover {
+            background-color: #1e7e34;
+        }
+
+        .action-note {
+            font-size: 12px;
+            color: #666;
+            margin-top: 6px;
+            text-align: center;
+        }
     </style>
 </head>
+
 <body>
 <div class="container">
+
     <h2>Encrypt / Decrypt Text ↔ Image</h2>
-    <div class="main-panels">
+    <div class="subtitle">
+        Secure text using autogenerated coloured images and retrieve it using the same passcode
+    </div>
 
-        <!-- Left Panel: Text + Passcode -->
-        <div class="panel text-panel">
-            <label>Text Input:</label>
-            <textarea id="textInput" placeholder="Type text here..."></textarea>
+    <!-- PASSCODE -->
+    <div class="passcode-box">
+        <label>Passcode (for both Encrypt & Decrypt)</label>
+        <input type="password" id="passcodeInput" placeholder="Enter secret passcode">
+        <p>For security, the passcode is cleared after each operation.</p>
+    </div>
 
-            <label>Passcode:</label>
-            <input type="password" id="passcodeInput" placeholder="Enter passcode">
+    <div class="panels">
 
-            <div class="action-buttons">
-                <button id="textToImageBtn">Encrypt Text → Image</button>
-                <button id="imageToTextBtn">Decrypt Image → Text</button>
+        <!-- TEXT TO IMAGE -->
+        <div class="panel">
+            <h3>🔐 Text → Image (Encrypt)</h3>
+
+            <label>Text Input</label>
+            <textarea id="textInput" placeholder="Type text to encrypt..."></textarea>
+
+            <button id="textToImageBtn">Encrypt & Generate Image</button>
+
+            <div class="action-note">
+                Converts text into a secure coloured image
             </div>
         </div>
 
-        <!-- Right Panel: Image -->
-        <div class="panel image-panel">
-            <label>Image:</label>
-            <div class="image-preview">
-                <img id="resultImage" src="#" alt="Encrypted Image Preview"/>
-            </div>
+        <!-- IMAGE TO TEXT -->
+        <div class="panel">
+            <h3>🔓 Image → Text (Decrypt)</h3>
+
+            <label>Select Encrypted Image</label>
             <input type="file" id="imageInput" accept="image/*">
-            <a id="downloadBtn" class="download-btn" href="#" download="encrypted-image.png">Download</a>
+
+            <div class="image-preview">
+                <img id="resultImage" src="#" alt="Encrypted Image Preview">
+            </div>
+
+            <button id="imageToTextBtn">Decrypt Image</button>
+
+            <a id="downloadBtn" class="download-btn" href="#" download="encrypted-image.png">
+                Download Encrypted Image
+            </a>
+
+            <div class="action-note">
+                Upload encrypted image to retrieve hidden text
+            </div>
         </div>
 
     </div>
@@ -104,7 +238,9 @@
                 resultImage.src = url;
                 resultImage.style.display = 'block';
                 downloadBtn.href = url;
-                downloadBtn.style.display = 'inline-block';
+                downloadBtn.style.display = 'block';
+
+                passcodeInput.value = ""; // ✅ clear passcode
             })
             .catch(err => alert("Error: " + err));
     });
@@ -123,7 +259,10 @@
 
         fetch('/decrypt', { method: 'POST', body: formData })
             .then(res => { if (!res.ok) throw new Error("Server error"); return res.text(); })
-            .then(text => { textInput.value = text; })
+            .then(text => {
+                textInput.value = text;
+                passcodeInput.value = ""; // ✅ clear passcode
+            })
             .catch(err => alert("Error: " + err));
     });
 </script>

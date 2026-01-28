@@ -8,7 +8,12 @@ public class AuthController {
 
     @GetMapping({"/", "/index"})
     public String showIndexPage() {
-        return "index";
+        return "index"; // your homepage / login form template
+    }
+
+    // ✅ Add this mapping for Spring Security login redirect
+    @GetMapping("/login")
+    public String showLoginPage() {
+        return "index"; // same index.html, or a dedicated login.html if you want
     }
 }
-

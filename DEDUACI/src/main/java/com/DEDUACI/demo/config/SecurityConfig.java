@@ -26,27 +26,26 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
+            // Disable CSRF so JS fetch POST works
             .csrf(csrf -> csrf.disable())
 
+            // Authorization rules
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints
-            		.requestMatchers(
-            			    "/",
-            			    "/index",
-            			    "/login",
-            			    "/register",
-            			    "/home",
-            			    "/students",
-            			    "/check-status",
-            			    "/css/**",
-            			    "/js/**",
-            			    "/api/public/**"
-            			).permitAll()
+                .requestMatchers(
+                    "/", "/index", "/login", "/register", "/home",
+                    "/encrypt", "/decrypt",               // << make these public
+                    "/css/**", "/js/**", "/api/public/**"
+                ).permitAll()
 
-                // Everything else requires authentication
+                // Sensitive endpoints
+                .requestMatchers("/students/**", "/admin/**", "/api/private/**").authenticated()
+
+                // Anything else requires authentication
                 .anyRequest().authenticated()
             )
 
+            // Login configuration
             .formLogin(form -> form
                 .loginPage("/login")
                 .loginProcessingUrl("/login")
@@ -55,6 +54,7 @@ public class SecurityConfig {
                 .permitAll()
             )
 
+            // Logout configuration
             .logout(logout -> logout
                 .logoutUrl("/logout")
                 .logoutSuccessUrl("/index?logout=true")
@@ -63,6 +63,7 @@ public class SecurityConfig {
                 .permitAll()
             )
 
+            // Session management
             .sessionManagement(session -> session
                 .maximumSessions(1)
                 .expiredUrl("/login?expired=true")
@@ -71,7 +72,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // ✅ REQUIRED for AuthRestController
     @Bean
     public AuthenticationManager authenticationManager(
             AuthenticationConfiguration configuration) throws Exception {
